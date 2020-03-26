@@ -1,0 +1,7 @@
+.idea
+.well-known
+vendor
+runtime
+public/uploads
+public/upload
+cert
