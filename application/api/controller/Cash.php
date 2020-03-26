@@ -9,6 +9,10 @@ use think\cache\driver\Redis;
 use think\Db;
 use think\Session;
 use think\Cache;
+use EasyWeChat\Factory;
+use app\common\library\Order;
+
+
 
 /**
  * 工作相关接口
@@ -38,7 +42,7 @@ class Cash extends Api
 
     /**
      * 需要登录的接口
-     * 
+     *
      */
     public function test2()
     {
@@ -53,6 +57,96 @@ class Cash extends Api
     {
         $this->success('返回成功', ['action' => 'test3']);
     }
+
+    public function get_client_ip()
+    {
+        if (getenv('HTTP_CLIENT_IP') && strcasecmp(getenv('HTTP_CLIENT_IP'), 'unknown')) {
+            $ip = getenv('HTTP_CLIENT_IP');
+        } elseif (getenv('HTTP_X_FORWARDED_FOR') && strcasecmp(getenv('HTTP_X_FORWARDED_FOR'), 'unknown')) {
+            $ip = getenv('HTTP_X_FORWARDED_FOR');
+        } elseif (getenv('REMOTE_ADDR') && strcasecmp(getenv('REMOTE_ADDR'), 'unknown')) {
+            $ip = getenv('REMOTE_ADDR');
+        } elseif (isset($_SERVER['REMOTE_ADDR']) && $_SERVER['REMOTE_ADDR'] && strcasecmp($_SERVER['REMOTE_ADDR'], 'unknown')) {
+            $ip = $_SERVER['REMOTE_ADDR'];
+        }
+        return preg_match('/[\d\.]{7,15}/', $ip, $matches) ? $matches [0] : '';
+    }
+
+    /**
+     * 提现功能
+     */
+    public function withdraw(){
+        $data = $this->request->post();
+        $sess_key = $data['sess_key'] ?? '';
+        $cash = $data['cash'] ?? 0;
+        $user_info = $this->getTUserInfo($sess_key);
+        $wxpay_config = config('Wxpay');
+
+        $config = [
+            'app_id' => $wxpay_config['APPID'],
+            'secret' => $wxpay_config['APPSECRET'],
+            // 下面为可选项
+            // 指定 API 调用返回结果的类型：array(default)/collection/object/raw/自定义类名
+            'response_type' => 'array',
+            'mch_id'             => $wxpay_config['MCHID'],
+            'key'             => $wxpay_config['KEY'],  // API 密钥
+            // 如需使用敏感接口（如退款、发送红包等）需要配置 API 证书路径(登录商户平台下载 API 证书)
+            'cert_path'          => $wxpay_config['CERT_PATH'], // XXX: 绝对路径！！！！
+            'key_path'           => $wxpay_config['KEY_PATH'],      // XXX: 绝对路径！！！！
+            'notify_url'         =>  $wxpay_config['PAY_TO_USRE_NOTIFY_URL'],     // 你也可以在下单时单独设置来想覆盖它
+        ];
+        $app = Factory::payment($config);
+        //确认用户的身份ok,余额足够
+        if($user_info['is_agent']!=1){
+            $this->error('身份不符,无提现权限', null);exit;
+        }
+        if($cash>$user_info['agent_coin']){
+            $this->error('金币不足,无法提现', null);exit;
+        }
+        //提现操作
+        $orderObj = new Order();
+        $order_code = $orderObj->createOrder2('WD');
+        //减少用户余额.添加余额更新记录
+        $result = $app->transfer->toBalance([
+         //   'spbill_create_ip'=> $this->get_client_ip(),
+            'partner_trade_no' => $order_code, // 商户订单号，需保持唯一性(只能是字母或者数字，不能包含有符号)
+            'openid' => $user_info['openid'],
+            'check_name' => 'NO_CHECK', // NO_CHECK：不校验真实姓名, FORCE_CHECK：强校验真实姓名
+            're_user_name' => '', // 如果 check_name 设置为FORCE_CHECK，则必填用户真实姓名
+            'amount' => $cash * 100, // 企业付款金额，单位为分
+            'desc' => '用户提现', // 企业付款操作说明信息。必填
+        ]);
+        if(($result['return_code']=="SUCCESS")&&($result['result_code']=="SUCCESS")){
+            //插入数据,更新用户余额
+            Db::table('user')->where('id', $user_info['id'])->setDec('agent_coin', $cash);
+            $arr_insert_withdraw = [
+                'user_id'=>$user_info['id'],
+                'cash'=>$cash,
+                'status'=>1,
+                'code'=>$order_code,
+                'create_at'=>date('Y-m-d H:i:s',time()),
+                'update_at'=>date('Y-m-d H:i:s',time()),
+            ];
+            Db::table('user_withdraw')->insert($arr_insert_withdraw);
+            $this->success('success');
+        }else{
+            $this->error('error', $result);
+        }
+    }
+
+
+    //提现记录
+    public function withDrawLog(){
+        $data = $this->request->post();
+        $sess_key = $data['sess_key'] ?? '';
+        $user_info = $this->getTUserInfo($sess_key);
+        $withdraw_log = Db::table('user_withdraw')
+            ->where('user_id','=',$user_info['id'])
+            ->order('id desc')
+            ->find();
+        $this->success('success',$withdraw_log);
+    }
+
 
 
     public function cashLog(){

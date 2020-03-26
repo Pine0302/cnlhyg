@@ -119,6 +119,11 @@ class Apply extends Backend
                 ->select();
             $this->model->removeOption();
             foreach($list as $kl=>$vl){
+                if($vl['type']==2){
+                    $project_info = Db::table('re_project')->where('id','=',$vl['re_project_id'])->find();
+                    //$list[$kl]['reResume'] = $list[$kl]['re_resume'];
+
+                }
                 $list[$kl]['reResume'] = $list[$kl]['re_resume'];
                 $list[$kl]['reCompany'] = $list[$kl]['re_company'];
                 $list[$kl]['recUser'] = $list[$kl]['rec_user'];
