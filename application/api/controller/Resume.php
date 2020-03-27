@@ -398,7 +398,7 @@ class Resume extends Api
                 $resumeQuery->removeOption('field');
                 $resumeQuery->join('user c','j.user_id = c.id','left');
                 $resumeQuery->field('j.id,j.name,j.label,j.mini_salary,j.max_salary,j.job_name,j.title,j.work_begin_time,j.education,j.self_introduction as introduction,c.avatar');
-                $order_str = '';
+                $order_str = ['j.id'=>'desc'];
                 /*switch($sort){
                     case 1:    //最新发布
                         $order_str = " j.create_at desc,j.id desc ";

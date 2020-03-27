@@ -72,6 +72,7 @@ class Work extends Api
 
 
 
+
         $instruction = isset($data['instruction']) ? $data['instruction'] : '';
         $requirement = isset($data['requirement']) ? $data['requirement'] : '';
 
@@ -87,7 +88,8 @@ class Work extends Api
 
         $salary_type = isset($data['salary_type']) ? $data['salary_type'] : 2;
         $day_salary = isset($data['day_salary']) ? $data['day_salary'] : 0;
-
+        $day_salary_min = isset($data['day_salary_min']) ? $data['day_salary_min'] : 0;
+        $day_salary_max = isset($data['day_salary_max']) ? $data['day_salary_max'] : 0;
 
 
         $arr_job = [];
@@ -115,6 +117,9 @@ class Work extends Api
 
             $arr_job['salary_type'] = $salary_type;
             $arr_job['day_salary'] = $day_salary;
+            $arr_job['day_salary_min'] = $day_salary_min;
+            $arr_job['day_salary_max'] = $day_salary_max;
+
 
             if(!empty($company_info['coordinate']))
             {
@@ -288,7 +293,7 @@ class Work extends Api
                 $jobQuery->join('re_company c','j.re_company_id = c.id','left');
                 $jobQuery->join('re_line l','l.id = c.re_line_id','left');
                 $jobQuery->join('areas s','s.areano = j.city_code','left');
-                $jobQuery->field('j.id,j.name,j.job_label,j.mini_salary,j.salary_type,j.day_salary,j.status,s.areaname as city_name,
+                $jobQuery->field('j.id,j.name,j.job_label,j.mini_salary,j.salary_type,j.day_salary,j.day_salary_max,j.day_salary_min,j.status,s.areaname as city_name,
                 j.max_salary,c.name as company_name,c.label as company_label,c.icon as company_icon,j.is_bonus,j.reward,l.name as lname,
                 j.city_code,j.job_experience,j.education');
                 $order_str = '';
@@ -354,6 +359,8 @@ class Work extends Api
                             'name'=>$vw['name'],
                             'mini_salary'=>$vw['mini_salary'],
                             'day_salary'=>$vw['day_salary'],
+                            'day_salary_max' => $vw['day_salary_max'],
+                            'day_salary_min' => $vw['day_salary_min'],
                             'salary_type'=>$vw['salary_type'],
                             'max_salary'=>$vw['max_salary'],
                             'company_name'=>$vw['company_name'],
